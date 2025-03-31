@@ -1,0 +1,9 @@
+Package: Race
+Title: VideoGameTrends
+Version: 0.1
+Authors@R: "Travis Race <Travis.race@aol.com> [aut, cre]"
+Description: My package will gather clean data online of specific games. It will provide functions 
+so the user can view sales trends, ratings, and sentiment of reviews.
+Depends: R (>= 3.1.2)
+License: CCO
+LazyData: true
