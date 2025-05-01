@@ -1,0 +1,200 @@
+---
+title: "Steam Game Analytics R Package"
+author: "Travis"
+date: "2025-04-22"
+output: html_document
+---
+====Overview====
+For my final project, I would like to create a package that will allow a user
+to view the data of the steam web page to allow visual analytics on the games.
+I want functions that will allow the user to view specific games numbers and then
+view the overall numbers on a histogram shiny app where the user may put in the 
+variables and see where the overall list of games end up.
+
+====HOW TO USE====
+This part will be a lot of repeating code I have already stated below, but I will leave it here to make it easier for users to understand and use.
+
+1. Use devtools::install() to downlaod package
+2. load package using library(VideoGameAnalytics)
+3. make sure to load all file by using devtools::load_all()
+4. Set API key by using set_rawg_key("YOUR_API_KEY_HERE")
+5. store data frame and how many rows you want using games_df <- fetch_game_data_env(pages = ###(amount of pages you want (1 page = 40)))
+6. Use functions:
+  *get_games()
+  EX. games <- get_games(search  = "call of duty")
+  
+  *get_game_details()
+  EX. outlast <- get_game_details(3790)
+  
+  *get_genres()
+  
+  *summarize_game_data(games_df)
+  
+7. Run shinyapp histogram: shiny::runApp("ShinyVG.R")
+  
+====Load Libraries====
+```{r, load_libraries}
+library(httr)
+library(jsonlite)
+library(dplyr)
+library(shiny)
+library(ggplot2)
+```
+
+====Load API====
+```{r, load_api}
+# Use this function to set API key once per session
+set_rawg_key <- function(key) {
+  Sys.setenv(RAWG_API_KEY = key)
+}
+
+# Main function to fetch game data (requires an API key)
+fetch_game_data <- function(api_key = Sys.getenv("RAWG_API_KEY"), pages = 1, enrich = FALSE) {
+  if (api_key == "") stop("API key not set. Use set_rawg_key().")
+  all_games <- list()
+
+  for (page in 1:pages) {
+    url <- paste0(
+      "https://api.rawg.io/api/games?key=", api_key,
+      "&page=", page, "&page_size=40"
+    )
+    response <- GET(url)
+    if (response$status_code != 200) stop("Failed to fetch data.")
+    
+    data <- fromJSON(content(response, "text"))
+    games <- data$results
+
+    if (enrich) {
+      games <- lapply(games, function(game) {
+        full <- tryCatch(get_game_details(game$id), error = function(e) NULL)
+        if (!is.null(full)) game$genres <- full$genres
+        game
+      })
+    }
+
+    all_games[[page]] <- games
+    Sys.sleep(1)
+  }
+
+  bind_rows(all_games) %>%
+    select(name, released, rating, ratings_count, metacritic, playtime, genres) %>%
+    filter(!is.na(rating))
+}
+
+# Friendly wrapper
+fetch_game_data_env <- function(pages = 1, enrich = FALSE) {
+  fetch_game_data(pages = pages, enrich = enrich)
+}
+
+```
+
+
+====GAME FINDER====
+Create a function where the user may search for a video game through a variety
+of ways. EX.  games <- get_games(search  = "call of duty")
+```{r}
+get_games <- function(search = NULL, genres = NULL, platforms = NULL,
+                      dates = NULL, ordering = NULL, page_size = 20) {
+  parameters <- list(
+    search = search,
+    genres = genres,
+    platforms = platforms,
+    dates = dates,
+    ordering = ordering,
+    page_size = page_size
+  )
+  rawg_request("/games", parameters)$results
+}
+
+```
+
+====FIND DETAILS====
+Allow user to gather details of the game 
+
+EX. outlast <- get_game_details(3790) 
+    outlast$genre
+    
+```{r}
+get_game_details <- function(game_id) {
+  rawg_request(paste0("/games/", game_id))
+}
+```
+
+====FIND GENRES====
+Allow user to categorize the genres of the file
+```{r}
+get_genres <- function() {
+  rawg_request("/genres")$results
+}
+```
+
+====DATA SUMMARY====
+
+Summarize data frame using:
+
+> summarize_game_data(games_df)
+
+```{r}
+summarize_game_data <- function(games_df) {
+  games_df %>%
+    summarise(
+      avg_rating = mean(rating, na.rm = TRUE),
+      num_games = n(),
+      earliest = min(released, na.rm = TRUE),
+      latest = max(released, na.rm = TRUE)
+    )
+}
+```
+
+====SHINY APP====
+Create a shiny app that will allow the user to create a histogram using the numerous variables
+```{r}
+
+#Tell user on what to download if the shiny app doesn't work
+run_game_histogram_app <- function(data) {
+  if (!requireNamespace("shiny", quietly = TRUE)) {
+    stop("The 'shiny' package is required. Please install it with install.packages('shiny').")
+  }
+  if (!requireNamespace("ggplot2", quietly = TRUE)) {
+    stop("The 'ggplot2' package is required. Please install it with install.packages('ggplot2').")
+  }
+
+#Create the shiny app (specifically histogram)
+  shinyApp(
+    ui = fluidPage(
+      titlePanel("Game Metric Histogram"),
+      sidebarLayout(
+        sidebarPanel(
+          selectInput("metric", "Choose metric to plot:",
+                             choices = names(data)[sapply(data, is.numeric)],
+                             selected = "rating"),
+          sliderInput("bins", "Number of bins:", min = 5, max = 50, value = 20)
+        ),
+        mainPanel(
+          plotOutput("histPlot")
+        )
+      )
+    ),
+    server = function(input, output) {
+      output$histPlot <- renderPlot({
+        ggplot(data, aes_string(x = input$metric)) +
+          geom_histogram(bins = input$bins, fill = "steelblue", color = "black") +
+          labs(
+            title = paste("Histogram of", input$metric),
+            x = input$metric, y = "Count"
+          ) +
+          theme_minimal()
+      })
+    }
+  )
+}
+```
+
+====RUN SHINY APP====
+```{r}
+games <- fetch_game_data(pages = 2, api_key = 'a402e3468b1640479e56d85cdf7e9e2c&page=')
+run_game_histogram_app(games)
+```
+
+
+  
