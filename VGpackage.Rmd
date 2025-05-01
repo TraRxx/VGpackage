@@ -12,11 +12,15 @@ view the overall numbers on a histogram shiny app where the user may put in the
 variables and see where the overall list of games end up.
 
 ====HOW TO USE====
-This part will be a lot of repeating code I have already stated below, but I will leave it here to make it easier for users to understand and use.
+This part will be a lot of repeating code I have already stated below, but I will leave it here to make it easier for users to understand and use. 
 
-1. Use devtools::install() to downlaod package
-2. load package using library(VideoGameAnalytics)
-3. make sure to load all file by using devtools::load_all()
+***IMPORTANT***
+This package uses an API key for RAWG! Luckily, you can get one easily by visiting https://rawg.io/apidocs and signing up. Giving a reason even for a school assignment should give you the key right away!
+
+1. Install package "devtools": install.packages("devtools")
+2. Use devtools::install() to downlaod package 
+3. load package using library(VideoGameAnalytics)
+4. make sure to load all libraries by using devtools::load_all()  (else certain functions won't run due to not finding functions)
 4. Set API key by using set_rawg_key("YOUR_API_KEY_HERE")
 5. store data frame and how many rows you want using games_df <- fetch_game_data_env(pages = ###(amount of pages you want (1 page = 40)))
 6. Use functions:
